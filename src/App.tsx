@@ -20,16 +20,13 @@ import {
   Mic, 
   PhoneOff, 
   RefreshCw,
-  Pencil,
   LogOut,
   Plus,
-  Check,
   CheckCheck,
   Trash2,
   X,
   Edit3,
   User,
-  Info,
   ChevronRight,
   UserPlus,
   FileText,
@@ -37,31 +34,18 @@ import {
   Star,
   Smile,
   Moon,
-  Sun,
   Palette,
   Heart,
   ThumbsUp,
   Laugh,
   Image as ImageIcon,
-  File as FileIcon,
-  MoreHorizontal,
-  Settings,
   Bell,
   Lock,
   HelpCircle,
   Shield,
-  Clock,
-  MapPin,
   MicOff,
   Volume2,
-  VolumeX,
-  Maximize2,
-  Minimize2,
-  Share2,
-  Copy,
-  Reply,
-  Forward,
-  Bookmark
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from './lib/utils';
@@ -74,7 +58,7 @@ export default function App() {
   // --- State ---
   const [myId, setMyId] = useState<string>(localStorage.getItem('my_id') || "");
   const [myProfile, setMyProfile] = useState<Profile>(
-    JSON.parse(localStorage.getItem('my_profile') || '{"name": "User Baru", "avatar": ""}')
+    JSON.parse(localStorage.getItem('my_profile') || '{"name": "User Baru", "avatar": "", "id": ""}')
   );
   const [chatHistory, setChatHistory] = useState<ChatHistory>(
     JSON.parse(localStorage.getItem('history') || '{}')
@@ -438,7 +422,7 @@ export default function App() {
     if (cleanId.length < 3) return;
     unlockAudio(); // Unlock audio on first interaction
     setMyId(cleanId);
-    setMyProfile(prev => ({ ...prev, name: cleanId }));
+    setMyProfile(prev => ({ ...prev, name: cleanId, id: cleanId }));
     setIsLoggedIn(true);
     
     // Request notification permission if supported
@@ -461,15 +445,20 @@ export default function App() {
   const openChat = (pid: string) => {
     setCurrentChatPeer(pid);
     setIsPeerConnected(false);
-    const conn = peerRef.current?.connect(PREFIX + pid);
-    if (conn) {
-      activeConnRef.current = conn;
-      conn.on('open', () => {
-        console.log("Connected to " + pid);
-        setIsPeerConnected(true);
-      });
-      conn.on('data', (data) => handleIncomingData(pid, data));
-      conn.on('close', () => setIsPeerConnected(false));
+
+    if (!pid.startsWith("GROUP_")) {
+      const conn = peerRef.current?.connect(PREFIX + pid);
+      if (conn) {
+        activeConnRef.current = conn;
+        conn.on('open', () => {
+          console.log("Connected to " + pid);
+          setIsPeerConnected(true);
+        });
+        conn.on('data', (data) => handleIncomingData(pid, data));
+        conn.on('close', () => setIsPeerConnected(false));
+      }
+    } else {
+      setIsPeerConnected(true);
     }
   };
 
@@ -535,9 +524,6 @@ export default function App() {
             conn.send({ id: msgId, type, content: text, groupId: currentChatPeer });
           });
         });
-        if (activeConnRef.current && activeConnRef.current.open) {
-           activeConnRef.current.send({ id: msgId, type, content: text, groupId: currentChatPeer });
-        }
       }
     } else {
       if (activeConnRef.current && activeConnRef.current.open) {
@@ -563,51 +549,10 @@ export default function App() {
     });
   };
 
-  const pushToHistory = (peerId: string, content: string, type: 'text' | 'img' | 'voice' | 'file', side: 'in' | 'out', id?: string) => {
-    setChatHistory(prev => {
-      const history = { ...prev };
-      if (!history[peerId]) history[peerId] = [];
-      const newMsg: Message = { 
-        id: id || Math.random().toString(36).substr(2, 9),
-        msg: content, 
-        type, 
-        side, 
-        time: Date.now(),
-        read: side === 'out' ? false : true
-      };
-      history[peerId] = [...history[peerId], newMsg];
-      return history;
-    });
-  };
-
   const sendTypingStatus = (isTyping: boolean) => {
     if (activeConnRef.current) {
       activeConnRef.current.send({ type: 'typing', content: isTyping });
     }
-  };
-
-  const sendFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentChatPeer) return;
-    
-    const isImage = file.type.startsWith('image/');
-    const reader = new FileReader();
-    
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      const type = isImage ? 'img' : 'file';
-      const content = isImage ? base64 : JSON.stringify({ name: file.name, data: base64 });
-      
-      if (activeConnRef.current && activeConnRef.current.open) {
-        activeConnRef.current.send({ type, content });
-      } else {
-        sendPushAlert(currentChatPeer, `Pesan dari ${myId.toUpperCase()}`, isImage ? "Mengirim foto" : `Mengirim file: ${file.name}`);
-      }
-      pushToHistory(currentChatPeer, content, type, 'out');
-    };
-    reader.readAsDataURL(file);
-    // Clear input
-    e.target.value = "";
   };
 
   const startRecording = async () => {
@@ -625,12 +570,7 @@ export default function App() {
         reader.onloadend = () => {
           const base64Audio = reader.result as string;
           if (currentChatPeer) {
-            if (activeConnRef.current && activeConnRef.current.open) {
-              activeConnRef.current.send({ type: 'voice', content: base64Audio });
-            } else {
-              sendPushAlert(currentChatPeer, `Pesan dari ${myId.toUpperCase()}`, "Pesan suara");
-            }
-            pushToHistory(currentChatPeer, base64Audio, 'voice', 'out');
+            sendMsg(base64Audio, 'voice');
           }
         };
         reader.readAsDataURL(audioBlob);
