@@ -108,7 +108,6 @@ export default function App() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupMembers, setNewGroupMembers] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   const handleCreateGroup = () => {
     if (!newGroupName) return;
@@ -154,11 +153,16 @@ export default function App() {
     peer.on('connection', (conn) => {
       const senderId = conn.peer.replace(PREFIX, '');
       
+      conn.on('open', () => {
+        if (currentChatPeer === senderId) {
+          setIsPeerConnected(true);
+          activeConnRef.current = conn;
+        }
+      });
+
       conn.on('data', (data: any) => {
         handleIncomingData(senderId, data);
       });
-      
-      activeConnRef.current = conn;
     });
 
     peer.on('call', (call) => {
@@ -279,14 +283,14 @@ export default function App() {
       const response = await fetch('/api/push/vapid-public-key').catch(() => null);
       
       if (!response || !response.ok) {
-        throw new Error(`Server API tidak merespons (Status: ${response?.status || 'Offline'}). Pastikan server.ts berjalan.`);
+        throw new Error("Server API tidak merespons. Pastikan server.ts berjalan.");
       }
 
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
         console.error("Respon bukan JSON:", text);
-        throw new Error("Server mengembalikan format non-JSON. Periksa rute API.");
+        throw new Error("Format respon server salah.");
       }
 
       const { publicKey } = await response.json();
@@ -847,17 +851,20 @@ export default function App() {
   };
 
   return (
-    <div className={cn("fixed inset-0 h-[100dvh] w-screen flex flex-col bg-wa-bg text-wa-text font-sans overflow-hidden select-none touch-none", theme)}>
+    <div className={cn("fixed inset-0 h-[100dvh] w-screen flex flex-col bg-wa-bg text-wa-text font-sans overflow-hidden select-none touch-none transition-colors duration-500", theme)}>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,#00a88411,transparent_50%)] pointer-events-none" />
       <audio id="ringtone" ref={ringtoneRef} loop src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" />
       <audio id="notif-chat" ref={notifRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" />
 
       {/* Header */}
-      <header className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 shrink-0 z-[100] safe-top touch-none">
-        <h2 className="text-2xl font-black text-wa-primary tracking-tight">StoryBali</h2>
+      <header className="h-20 flex items-center justify-between px-6 bg-wa-bg/80 backdrop-blur-xl border-b border-white/5 shrink-0 z-[100] safe-top touch-none">
+        <div className="flex flex-col">
+          <h2 className="text-2xl font-black text-wa-primary tracking-tighter leading-none">STORYBALI</h2>
+          <span className="text-[10px] font-bold text-gray-500 tracking-[0.2em] mt-1">SECURE P2P CHAT</span>
+        </div>
         <div className="flex gap-5 text-gray-400">
-          <Camera className="cursor-pointer hover:text-white w-5 h-5 transition-colors" />
-          <Search className="cursor-pointer hover:text-white w-5 h-5 transition-colors" />
-          <MoreVertical className="cursor-pointer hover:text-white w-5 h-5 transition-colors" />
+          <div className="p-2.5 bg-white/5 rounded-2xl hover:text-white transition-all cursor-pointer"><Search className="w-5 h-5" /></div>
+          <div className="p-2.5 bg-white/5 rounded-2xl hover:text-white transition-all cursor-pointer"><MoreVertical className="w-5 h-5" /></div>
         </div>
       </header>
 
@@ -883,12 +890,12 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="bg-wa-surface rounded-2xl flex items-center px-4 py-3 gap-3 border border-white/5 focus-within:border-wa-primary/30 transition-colors shadow-sm">
+                <div className="bg-wa-surface/50 backdrop-blur-md rounded-[2rem] flex items-center px-6 py-4 gap-3 border border-white/5 focus-within:border-wa-primary/30 transition-all shadow-inner">
                   <Search className="w-5 h-5 text-gray-500" />
                   <input 
                     type="text" 
                     placeholder="Cari kontak..." 
-                    className="bg-transparent flex-grow outline-none text-sm text-white placeholder:text-gray-600 font-medium"
+                    className="bg-transparent flex-grow outline-none text-base text-white placeholder:text-gray-600 font-medium"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
@@ -910,7 +917,7 @@ export default function App() {
                         <motion.div 
                           key={c}
                           layout
-                          className="group flex items-center gap-4 p-4 bg-wa-surface/30 rounded-3xl border border-white/5 hover:bg-wa-surface/50 transition-all cursor-pointer active:scale-[0.98]"
+                          className="group flex items-center gap-4 p-4 bg-wa-surface/40 backdrop-blur-sm rounded-[2rem] border border-white/5 hover:border-wa-primary/20 hover:bg-wa-surface/60 transition-all cursor-pointer active:scale-[0.98]"
                           onClick={() => openChat(c)}
                         >
                           <img src={`https://ui-avatars.com/api/?name=${c}&background=random`} className="w-12 h-12 rounded-2xl shadow-md" alt={c} />
@@ -946,11 +953,11 @@ export default function App() {
               <div className="p-4 flex gap-4 overflow-x-auto no-scrollbar border-b border-white/5 mb-2 bg-wa-surface/20">
                 <div className="flex flex-col items-center gap-2 shrink-0 group">
                   <div 
-                    className="w-16 h-16 rounded-full border-2 border-dashed border-wa-primary p-1 relative cursor-pointer group-hover:scale-105 transition-transform"
+                    className="w-16 h-16 rounded-[1.5rem] border-2 border-dashed border-wa-primary p-1 relative cursor-pointer group-hover:rotate-6 transition-all"
                     onClick={addStatusPrompt}
                   >
-                    <img src={myProfile.avatar || `https://ui-avatars.com/api/?name=${myId}&background=00a884&color=fff`} className="w-full h-full rounded-full object-cover" alt="My Status" />
-                    <div className="absolute bottom-0 right-0 bg-wa-primary rounded-full p-1 border-2 border-wa-bg shadow-lg">
+                    <img src={myProfile.avatar || `https://ui-avatars.com/api/?name=${myId}&background=00a884&color=fff`} className="w-full h-full rounded-[1.2rem] object-cover" alt="My Status" />
+                    <div className="absolute -bottom-1 -right-1 bg-wa-primary rounded-xl p-1.5 border-2 border-wa-bg shadow-lg">
                       <Plus className="w-3 h-3 text-white" />
                     </div>
                   </div>
@@ -962,8 +969,8 @@ export default function App() {
                     className="flex flex-col items-center gap-2 shrink-0 cursor-pointer group"
                     onClick={() => setViewingStatus(s)}
                   >
-                    <div className="w-16 h-16 rounded-full border-2 border-wa-primary p-1 group-hover:scale-105 transition-transform">
-                      <img src={`https://ui-avatars.com/api/?name=${s.userId}&background=random`} className="w-full h-full rounded-full object-cover" alt={s.userId} />
+                    <div className="w-16 h-16 rounded-[1.5rem] border-2 border-wa-primary p-1 group-hover:scale-105 transition-transform shadow-lg shadow-wa-primary/10">
+                      <img src={`https://ui-avatars.com/api/?name=${s.userId}&background=random`} className="w-full h-full rounded-[1.2rem] object-cover" alt={s.userId} />
                     </div>
                     <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter truncate w-16 text-center">{s.userId}</span>
                   </div>
@@ -972,19 +979,19 @@ export default function App() {
 
               {/* Search Bar & Create Group */}
               <div className="px-4 py-3 flex gap-3">
-                <div className="bg-wa-surface rounded-2xl flex items-center px-4 py-3 gap-3 border border-white/5 flex-grow focus-within:border-wa-primary/30 transition-colors shadow-sm">
+                <div className="bg-wa-surface/50 backdrop-blur-md rounded-[2rem] flex items-center px-6 py-4 gap-3 border border-white/5 flex-grow focus-within:border-wa-primary/30 transition-all shadow-sm">
                   <Search className="w-5 h-5 text-gray-500" />
                   <input 
                     type="text" 
                     placeholder="Cari chat atau pesan..." 
-                    className="bg-transparent flex-grow outline-none text-sm text-white placeholder:text-gray-600 font-medium"
+                    className="bg-transparent flex-grow outline-none text-base text-white placeholder:text-gray-600 font-medium"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
                 <button 
                   onClick={() => setIsCreatingGroup(true)}
-                  className="p-3.5 bg-wa-primary text-white rounded-2xl shadow-lg shadow-wa-primary/20 hover:scale-105 active:scale-95 transition-all"
+                  className="p-4 bg-wa-primary text-white rounded-[1.5rem] shadow-xl shadow-wa-primary/30 hover:scale-105 active:scale-95 transition-all"
                 >
                   <Users className="w-6 h-6" />
                 </button>
@@ -998,7 +1005,7 @@ export default function App() {
                     <motion.div 
                       key={group.id}
                       layout
-                      className="group flex items-center gap-4 p-4 hover:bg-wa-surface/50 cursor-pointer transition active:bg-wa-surface relative"
+                      className="group flex items-center gap-4 p-4 mx-2 my-1 rounded-3xl hover:bg-wa-surface/60 cursor-pointer transition active:bg-wa-surface relative"
                     >
                       <div className="relative shrink-0" onClick={() => openChat(group.id)}>
                         <img src={`https://ui-avatars.com/api/?name=${group.name}&background=00a884&color=fff`} className="w-14 h-14 rounded-2xl shadow-md" alt={group.name} />
@@ -1041,7 +1048,7 @@ export default function App() {
                       <motion.div 
                         key={pid}
                         layout
-                        className="group flex items-center gap-4 p-4 hover:bg-wa-surface/50 cursor-pointer transition active:bg-wa-surface relative"
+                        className="group flex items-center gap-4 p-4 mx-2 my-1 rounded-3xl hover:bg-wa-surface/60 cursor-pointer transition active:bg-wa-surface relative"
                       >
                         <div className="relative shrink-0" onClick={() => openChat(pid)}>
                           <img src={`https://ui-avatars.com/api/?name=${pid}&background=random`} className="w-14 h-14 rounded-2xl shadow-md" alt={pid} />
@@ -1525,8 +1532,8 @@ export default function App() {
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed inset-0 bg-[#0b141a] z-[150] flex flex-col"
           >
-            <header className="h-16 glass flex items-center px-2 gap-2 border-b border-white/5 shrink-0 z-[100] safe-top select-none touch-none">
-              <div className="p-1.5 hover:bg-white/5 rounded-full transition-colors cursor-pointer" onClick={closeChat}>
+            <header className="h-20 bg-wa-bg/90 backdrop-blur-2xl flex items-center px-4 gap-3 border-b border-white/5 shrink-0 z-[100] safe-top select-none touch-none">
+              <div className="p-2 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-90" onClick={closeChat}>
                 <ArrowLeft className="w-5 h-5 text-gray-400 hover:text-white" />
               </div>
               {!isSearchingChat ? (
@@ -1537,15 +1544,15 @@ export default function App() {
                         ? `https://ui-avatars.com/api/?name=${groups.find(g => g.id === currentChatPeer)?.name}&background=00a884&color=fff`
                         : `https://ui-avatars.com/api/?name=${currentChatPeer}&background=random`
                       } 
-                      className="w-9 h-9 rounded-xl shadow-lg border border-white/5" 
+                      className="w-11 h-11 rounded-[1.2rem] shadow-lg border border-white/5" 
                       alt={currentChatPeer} 
                     />
                     {isPeerConnected && !currentChatPeer.startsWith("GROUP_") && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-wa-bg rounded-full shadow-sm" />
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-500 border-2 border-wa-bg rounded-full shadow-sm" />
                     )}
                   </div>
                   <div className="flex-grow min-w-0">
-                    <h3 className="font-black text-sm truncate leading-tight text-white">
+                    <h3 className="font-black text-base truncate leading-tight text-white">
                       {currentChatPeer.startsWith("GROUP_") 
                         ? groups.find(g => g.id === currentChatPeer)?.name 
                         : currentChatPeer.toUpperCase()
@@ -1560,12 +1567,12 @@ export default function App() {
                   </div>
                 </>
               ) : (
-                <div className="flex-grow flex items-center bg-white/5 rounded-xl px-3 py-1.5 border border-white/5 focus-within:border-wa-primary/30 transition-all">
-                  <Search className="w-3.5 h-3.5 text-gray-500 mr-2" />
+                <div className="flex-grow flex items-center bg-white/5 rounded-[1.2rem] px-4 py-2 border border-white/5 focus-within:border-wa-primary/30 transition-all">
+                  <Search className="w-4 h-4 text-gray-500 mr-2" />
                   <input 
                     autoFocus
                     placeholder="Cari pesan..." 
-                    className="bg-transparent outline-none text-xs text-white w-full font-medium"
+                    className="bg-transparent outline-none text-sm text-white w-full font-medium"
                     value={searchChatQuery}
                     onChange={(e) => setSearchChatQuery(e.target.value)}
                   />
@@ -1575,14 +1582,14 @@ export default function App() {
               <div className="flex gap-1 text-gray-400 items-center">
                 {!isSearchingChat && (
                   <>
-                    <div className="p-2 hover:bg-white/5 rounded-lg transition-all cursor-pointer active:scale-90" onClick={() => setIsSearchingChat(true)}>
-                      <Search className="w-4.5 h-4.5" />
+                    <div className="p-2.5 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-90" onClick={() => setIsSearchingChat(true)}>
+                      <Search className="w-5 h-5" />
                     </div>
-                    <div className="p-2 hover:bg-white/5 rounded-lg transition-all cursor-pointer active:scale-90" onClick={() => startCall('voice')}>
-                      <Phone className="w-4.5 h-4.5" />
+                    <div className="p-2.5 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-90" onClick={() => startCall('voice')}>
+                      <Phone className="w-5 h-5" />
                     </div>
-                    <div className="p-2 hover:bg-white/5 rounded-lg transition-all cursor-pointer active:scale-90" onClick={() => startCall('video')}>
-                      <Video className="w-4.5 h-4.5" />
+                    <div className="p-2.5 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-90" onClick={() => startCall('video')}>
+                      <Video className="w-5 h-5" />
                     </div>
                   </>
                 )}
@@ -1609,10 +1616,11 @@ export default function App() {
             </header>
             
             <div 
-              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed overscroll-contain touch-pan-y scroll-smooth"
+              className="flex-grow overflow-y-auto p-6 flex flex-col gap-4 bg-fixed overscroll-contain touch-pan-y scroll-smooth"
               style={{ 
                 backgroundImage: wallpaper ? `url(${wallpaper})` : "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded51.png')",
-                backgroundSize: 'cover'
+                backgroundSize: 'cover',
+                backgroundBlendMode: 'overlay'
               }}
               onClick={() => { setShowAttachMenu(false); setShowEmojiPicker(false); }}
             >
@@ -1624,11 +1632,13 @@ export default function App() {
                   initial={{ opacity: 0, scale: 0.95, y: 5 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   className={cn(
-                    "p-3.5 max-w-[80%] shadow-sm relative group/msg",
-                    m.side === 'in' ? "bg-wa-surface rounded-2xl rounded-tl-none self-start" : "bg-wa-accent rounded-2xl rounded-tr-none self-end text-white"
+                    "p-4 max-w-[85%] shadow-xl relative group/msg transition-all",
+                    m.side === 'in' 
+                      ? "bg-wa-surface/90 backdrop-blur-md rounded-[1.8rem] rounded-tl-none self-start" 
+                      : "bg-wa-primary rounded-[1.8rem] rounded-tr-none self-end text-white shadow-wa-primary/20"
                   )}
                 >
-                  <div className="absolute -top-8 left-0 right-0 hidden group-hover/msg:flex justify-center gap-2 z-10 select-none">
+                  <div className="absolute -top-10 left-0 right-0 hidden group-hover/msg:flex justify-center gap-2 z-10 select-none">
                     <div className="bg-wa-surface border border-white/10 rounded-full px-3 py-1.5 flex gap-3 shadow-2xl backdrop-blur-xl">
                       <ThumbsUp className="w-4 h-4 text-yellow-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '👍')} />
                       <Heart className="w-4 h-4 text-rose-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '❤️')} />
@@ -1725,7 +1735,7 @@ export default function App() {
               <div ref={chatEndRef} />
             </div>
             
-            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom select-none bg-wa-bg/80 backdrop-blur-xl">
+            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom select-none bg-wa-bg/90 backdrop-blur-2xl">
               <div className="flex items-end gap-2 max-w-4xl mx-auto">
                 <div className="flex gap-1 mb-0.5">
                   <div className="relative">
@@ -1742,9 +1752,9 @@ export default function App() {
                     <AnimatePresence>
                       {showAttachMenu && (
                         <motion.div 
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          initial={{ opacity: 0, y: 10, scale: 0.9 }}
                           animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.9 }}
                           className="absolute bottom-full left-0 mb-4 flex flex-col gap-3 z-[200]"
                         >
                           <label className="p-3 bg-emerald-500 text-white rounded-full cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
@@ -1758,7 +1768,7 @@ export default function App() {
                               }
                             }} />
                           </label>
-                          <label className="p-3 bg-blue-500 text-white rounded-full cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
+                          <label className="p-4 bg-blue-500 text-white rounded-2xl cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
                             <FileText className="w-5 h-5" />
                             <input type="file" className="hidden" onChange={(e) => {
                               const file = e.target.files?.[0];
@@ -1775,17 +1785,17 @@ export default function App() {
                   </div>
                   <button 
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="p-2.5 bg-wa-surface rounded-full text-gray-400 hover:text-yellow-500 hover:bg-yellow-500/10 transition-all active:scale-90 shadow-lg"
+                    className="p-3 bg-wa-surface rounded-2xl text-gray-400 hover:text-yellow-500 hover:bg-yellow-500/10 transition-all active:scale-90 shadow-lg"
                   >
-                    <Smile className="w-4.5 h-4.5" />
+                    <Smile className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="flex-grow bg-wa-surface rounded-[24px] border border-white/5 flex items-end px-3 py-2 focus-within:border-wa-primary/30 transition-all shadow-lg backdrop-blur-xl">
+                <div className="flex-grow bg-wa-surface/50 backdrop-blur-xl rounded-[1.8rem] border border-white/5 flex items-end px-5 py-3 focus-within:border-wa-primary/30 transition-all shadow-inner">
                   <textarea 
                     rows={1}
                     placeholder="Ketik pesan..." 
-                    className="bg-transparent flex-grow outline-none text-sm text-white py-0.5 resize-none max-h-32 font-medium placeholder:text-gray-600"
+                    className="bg-transparent flex-grow outline-none text-[15px] text-white py-0.5 resize-none max-h-32 font-medium placeholder:text-gray-600"
                     value={messageInput}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
@@ -1813,8 +1823,8 @@ export default function App() {
                     onTouchStart={startRecording}
                     onTouchEnd={stopRecording}
                     className={cn(
-                      "p-4 rounded-full transition-all shadow-xl active:scale-90",
-                      isRecording ? "bg-rose-500 shadow-rose-500/30" : "bg-wa-surface text-gray-400 hover:text-wa-primary"
+                      "p-4 rounded-[1.2rem] transition-all shadow-xl active:scale-90",
+                      isRecording ? "bg-rose-500 shadow-rose-500/30" : "bg-wa-surface/50 text-gray-400 hover:text-wa-primary"
                     )}
                   >
                     <Mic className={cn("w-6 h-6", isRecording ? "text-white animate-pulse" : "")} />
@@ -1829,8 +1839,8 @@ export default function App() {
                       }
                     }}
                     className={cn(
-                      "p-4 rounded-full transition-all shadow-xl active:scale-90",
-                      messageInput.trim() ? "bg-wa-primary text-white shadow-wa-primary/30" : "bg-wa-surface text-gray-600 opacity-50"
+                      "p-4 rounded-[1.2rem] transition-all shadow-xl active:scale-90",
+                      messageInput.trim() ? "bg-wa-primary text-white shadow-wa-primary/40" : "bg-wa-surface/50 text-gray-600 opacity-50"
                     )}
                   >
                     <Send className="w-6 h-6" />
