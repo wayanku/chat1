@@ -115,6 +115,97 @@ export default function App() {
   const audioChunksRef = useRef<Blob[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // --- Handlers (Moved up to avoid TDZ / Initialization errors) ---
+  const handleIncomingData = useCallback((senderId: string, data: any) => {
+    if (data.type === 'call-ended') {
+      stopRingtone();
+      endCall(false);
+      return;
+    }
+    if (data.type === 'typing') {
+      if (currentChatPeer === senderId) {
+        setTypingStatus(data.content);
+      }
+      return;
+    }
+    if (data.type === 'reaction') {
+      setChatHistory(prev => {
+        const history = { ...prev };
+        if (history[senderId]) {
+          history[senderId] = history[senderId].map(m => {
+            if (m.id === data.msgId) {
+              const reactions = { ...m.reactions };
+              if (!reactions[data.emoji]) reactions[data.emoji] = [];
+              if (!reactions[data.emoji].includes(senderId)) {
+                reactions[data.emoji] = [...reactions[data.emoji], senderId];
+              }
+              return { ...m, reactions };
+            }
+            return m;
+          });
+        }
+        return history;
+      });
+      return;
+    }
+    if (data.type === 'read') {
+      setChatHistory(prev => {
+        const history = { ...prev };
+        if (history[senderId]) {
+          history[senderId] = history[senderId].map(m => {
+            if (m.id === data.msgId) return { ...m, read: true };
+            return m;
+          });
+        }
+        return history;
+      });
+      return;
+    }
+
+    notifRef.current?.play().catch(() => {});
+    
+    // Native Notification
+    if (Notification.permission === "granted" && document.hidden && notifMode === 'all') {
+      let body = "";
+      if (data.type === 'text') body = data.content;
+      else if (data.type === 'img') body = "Mengirim foto";
+      else if (data.type === 'voice') body = "Pesan suara";
+      else if (data.type === 'file') {
+        try {
+          body = `File: ${JSON.parse(data.content).name}`;
+        } catch {
+          body = "Mengirim file";
+        }
+      }
+
+      new Notification(`Pesan dari ${senderId.toUpperCase()}`, {
+        body,
+        icon: `https://ui-avatars.com/api/?name=${senderId}&background=random`
+      });
+    }
+    
+    setChatHistory(prev => {
+      const history = { ...prev };
+      const chatTargetId = data.groupId || senderId;
+      if (!history[chatTargetId]) history[chatTargetId] = [];
+      history[chatTargetId] = [...history[chatTargetId], {
+        id: data.id || Math.random().toString(36).substr(2, 9),
+        msg: data.content,
+        type: data.type,
+        side: 'in',
+        time: Date.now(),
+        read: true
+      }];
+      
+      // Send read receipt back (only for private chats)
+      if (!data.groupId && data.id && activeConnRef.current && activeConnRef.current.open) {
+        activeConnRef.current.send({ type: 'read', msgId: data.id });
+      }
+      
+      return history;
+    });
+  }, [currentChatPeer, notifMode]);
+
   // --- Persistence ---
   useEffect(() => {
     if (myId) localStorage.setItem('my_id', myId);
@@ -180,19 +271,19 @@ export default function App() {
       peer.destroy();
       peerRef.current = null; // Clear the ref when peer is destroyed
     };
-  }, [myId, setLoginError, setIsLoggedIn, setMyId, handleIncomingData]); // Added dependencies
+  }, [myId, handleIncomingData]); // Cleaned up dependencies
 
   useEffect(() => {
     if (isLoggedIn && myId) {
-      initPeer(myId);
+      const cleanup = initPeer(myId);
       
       // Auto-subscribe to push if permission already granted
       if ("Notification" in window && Notification.permission === "granted") {
         subscribeToPush(myId);
       }
-      return cleanupPeer; // Return cleanup function
+      return () => { if (cleanup) cleanup(); };
     }
-  }, [isLoggedIn, myId, initPeer, subscribeToPush]); // Added subscribeToPush to dependencies
+  }, [isLoggedIn, myId, initPeer]);
 
   // --- Status Logic ---
   const addStatus = (type: 'text' | 'img', content: string) => {
@@ -303,109 +394,6 @@ export default function App() {
     } catch (error) {
       console.error('Push subscription failed:', error);
     }
-  };
-
-  const sendPushAlert = async (targetUserId: string, title: string, body: string) => {
-    try {
-      await fetch('/api/push/notify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId, title, body })
-      });
-    } catch (error) {
-      console.error('Failed to send push alert:', error);
-    }
-  };
-
-  // --- Handlers ---
-  const handleIncomingData = (senderId: string, data: any) => {
-    if (data.type === 'call-ended') {
-      stopRingtone();
-      endCall(false);
-      return;
-    }
-    if (data.type === 'typing') {
-      if (currentChatPeer === senderId) {
-        setTypingStatus(data.content);
-      }
-      return;
-    }
-    if (data.type === 'reaction') {
-      setChatHistory(prev => {
-        const history = { ...prev };
-        if (history[senderId]) {
-          history[senderId] = history[senderId].map(m => {
-            if (m.id === data.msgId) {
-              const reactions = { ...m.reactions };
-              if (!reactions[data.emoji]) reactions[data.emoji] = [];
-              if (!reactions[data.emoji].includes(senderId)) {
-                reactions[data.emoji] = [...reactions[data.emoji], senderId];
-              }
-              return { ...m, reactions };
-            }
-            return m;
-          });
-        }
-        return history;
-      });
-      return;
-    }
-    if (data.type === 'read') {
-      setChatHistory(prev => {
-        const history = { ...prev };
-        if (history[senderId]) {
-          history[senderId] = history[senderId].map(m => {
-            if (m.id === data.msgId) return { ...m, read: true };
-            return m;
-          });
-        }
-        return history;
-      });
-      return;
-    }
-
-    notifRef.current?.play().catch(() => {});
-    
-    // Native Notification
-    if (Notification.permission === "granted" && document.hidden && notifMode === 'all') {
-      let body = "";
-      if (data.type === 'text') body = data.content;
-      else if (data.type === 'img') body = "Mengirim foto";
-      else if (data.type === 'voice') body = "Pesan suara";
-      else if (data.type === 'file') {
-        try {
-          body = `File: ${JSON.parse(data.content).name}`;
-        } catch {
-          body = "Mengirim file";
-        }
-      }
-
-      new Notification(`Pesan dari ${senderId.toUpperCase()}`, {
-        body,
-        icon: `https://ui-avatars.com/api/?name=${senderId}&background=random`
-      });
-    }
-    
-    setChatHistory(prev => {
-      const history = { ...prev };
-      const chatTargetId = data.groupId || senderId;
-      if (!history[chatTargetId]) history[chatTargetId] = [];
-      history[chatTargetId] = [...history[chatTargetId], {
-        id: data.id || Math.random().toString(36).substr(2, 9),
-        msg: data.content,
-        type: data.type,
-        side: 'in',
-        time: Date.now(),
-        read: true
-      }];
-      
-      // Send read receipt back (only for private chats)
-      if (!data.groupId && data.id && activeConnRef.current && activeConnRef.current.open) {
-        activeConnRef.current.send({ type: 'read', msgId: data.id });
-      }
-      
-      return history;
-    });
   };
 
   // --- Audio Unlocking for iOS ---
