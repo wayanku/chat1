@@ -396,6 +396,18 @@ export default function App() {
     }
   };
 
+  const sendPushAlert = async (targetUserId: string, title: string, body: string) => {
+    try {
+      await fetch('/api/push/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetUserId, title, body })
+      });
+    } catch (error) {
+      console.error('Failed to send push alert:', error);
+    }
+  };
+
   // --- Audio Unlocking for iOS ---
   const unlockAudio = () => {
     if (ringtoneRef.current) {
@@ -474,10 +486,12 @@ export default function App() {
     setChatHistory(prev => ({ ...prev, [pid]: [] }));
   };
 
-  const addContact = () => {
-    const id = "UserBaru"; // Default ID for now
-    if (id && id !== myId && !contacts.includes(id)) {
-      setContacts(prev => [...prev, id]);
+  const addContact = (id?: string) => {
+    const targetId = typeof id === 'string' ? id : prompt("Masukkan ID Teman:");
+    if (!targetId) return;
+    const cleanId = targetId.trim().toLowerCase();
+    if (cleanId && cleanId !== myId && !contacts.includes(cleanId)) {
+      setContacts(prev => [...prev, cleanId]);
     }
   };
 
