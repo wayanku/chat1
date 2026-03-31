@@ -69,6 +69,12 @@ async function startServer() {
       res.json({ status: "success" });
     } catch (error) {
       console.error("Push error:", error);
+      // Hapus subskripsi jika sudah tidak valid/expired
+      const subs = getSubscriptions();
+      if (subs[targetUserId]) {
+        delete subs[targetUserId];
+        fs.writeFileSync(SUBS_FILE, JSON.stringify(subs));
+      }
       res.status(500).json({ error: "Failed to send push notification" });
     }
   });
