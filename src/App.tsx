@@ -108,6 +108,7 @@ export default function App() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupMembers, setNewGroupMembers] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   const handleCreateGroup = () => {
     if (!newGroupName) return;
