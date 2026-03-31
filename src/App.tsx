@@ -93,6 +93,7 @@ export default function App() {
   const [newGroupMembers, setNewGroupMembers] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   const handleCreateGroup = () => {
     if (!newGroupName) return;
@@ -135,19 +136,13 @@ export default function App() {
       console.log('Peer connected with ID:', id);
     });
 
-    peer.on('connection', (conn) => {
+    // Handle incoming data connections
+    peer.on('connection', (conn) => { // This is for incoming connections from other peers
       const senderId = conn.peer.replace(PREFIX, '');
-      
-      conn.on('open', () => {
-        if (currentChatPeer === senderId) {
-          setIsPeerConnected(true);
-          activeConnRef.current = conn;
-        }
-      });
-
       conn.on('data', (data: any) => {
         handleIncomingData(senderId, data);
       });
+      // Do NOT set activeConnRef.current here. It's for outgoing connections initiated by openChat.
     });
 
     peer.on('call', (call) => {
@@ -167,14 +162,25 @@ export default function App() {
     peer.on('error', (err) => {
       console.error('Peer error:', err);
       if (err.type === 'unavailable-id') {
-        logout();
+        setLoginError(`ID "${myId}" sudah digunakan atau tidak tersedia. Silakan coba ID lain.`);
+        setIsLoggedIn(false); // Go back to login screen
+        setMyId(""); // Clear the ID that caused the error
+        peerRef.current?.destroy(); // Destroy the peer instance that failed
+        peerRef.current = null;
+      } else {
+        setLoginError(`Terjadi kesalahan PeerJS: ${err.message}.`);
+        setIsLoggedIn(false);
+        setMyId("");
+        peerRef.current?.destroy();
+        peerRef.current = null;
       }
     });
 
     return () => {
       peer.destroy();
+      peerRef.current = null; // Clear the ref when peer is destroyed
     };
-  }, []);
+  }, [myId, setLoginError, setIsLoggedIn, setMyId, handleIncomingData]); // Added dependencies
 
   useEffect(() => {
     if (isLoggedIn && myId) {
@@ -184,8 +190,9 @@ export default function App() {
       if ("Notification" in window && Notification.permission === "granted") {
         subscribeToPush(myId);
       }
+      return cleanupPeer; // Return cleanup function
     }
-  }, [isLoggedIn, myId, initPeer]);
+  }, [isLoggedIn, myId, initPeer, subscribeToPush]); // Added subscribeToPush to dependencies
 
   // --- Status Logic ---
   const addStatus = (type: 'text' | 'img', content: string) => {
@@ -418,11 +425,15 @@ export default function App() {
   };
 
   const login = (id: string) => {
+    setLoginError(null); // Clear any previous login errors
     const cleanId = id.trim().toLowerCase();
-    if (cleanId.length < 3) return;
+    if (cleanId.length < 3) {
+      setLoginError("ID harus memiliki minimal 3 karakter.");
+      return;
+    }
     unlockAudio(); // Unlock audio on first interaction
     setMyId(cleanId);
-    setMyProfile(prev => ({ ...prev, name: cleanId, id: cleanId }));
+    setMyProfile({ name: cleanId, id: cleanId, avatar: myProfile.avatar || "" });
     setIsLoggedIn(true);
     
     // Request notification permission if supported
@@ -745,7 +756,17 @@ export default function App() {
               placeholder="ID Unik Anda" 
               className="w-full bg-wa-surface p-5 rounded-2xl border border-white/5 outline-none focus:border-wa-primary transition-all text-center font-bold text-xl text-white placeholder:text-gray-600"
               onKeyDown={(e) => e.key === 'Enter' && login((e.target as HTMLInputElement).value)}
+              onChange={(e) => {
+                // Clear error when user starts typing again
+                if (loginError) setLoginError(null);
+                // No need to update myId state here, it's handled by login function
+              }}
             />
+            {loginError && (
+              <motion.p initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="text-rose-400 text-xs text-center mt-2 font-medium">
+                {loginError}
+              </motion.p>
+            )}
           </div>
           <button 
             onClick={() => login((document.getElementById('my-id-input') as HTMLInputElement).value)}
@@ -812,76 +833,6 @@ export default function App() {
       {/* Content Area */}
       <main className="flex-grow overflow-y-auto pb-32 relative overscroll-contain touch-pan-y scroll-smooth">
         <AnimatePresence mode="wait">
-          {activePage === 'contacts' && (
-            <motion.div 
-              key="contacts"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="p-6 flex flex-col gap-8 pb-32"
-            >
-              <div className="flex flex-col gap-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-black tracking-tight">KONTAK</h2>
-                  <button 
-                    onClick={addContact}
-                    className="p-3 bg-wa-primary/10 text-wa-primary rounded-2xl hover:bg-wa-primary/20 transition-all active:scale-95"
-                  >
-                    <UserPlus className="w-6 h-6" />
-                  </button>
-                </div>
-
-                <div className="bg-wa-surface/50 backdrop-blur-md rounded-[2rem] flex items-center px-6 py-4 gap-3 border border-white/5 focus-within:border-wa-primary/30 transition-all shadow-inner">
-                  <Search className="w-5 h-5 text-gray-500" />
-                  <input 
-                    type="text" 
-                    placeholder="Cari kontak..." 
-                    className="bg-transparent flex-grow outline-none text-base text-white placeholder:text-gray-600 font-medium"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-2">Daftar Kontak</p>
-                <div className="flex flex-col gap-2">
-                  {contacts.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-64 text-gray-500 opacity-20">
-                      <Users className="w-16 h-16 mb-4" />
-                      <p className="text-sm font-bold uppercase tracking-widest">Belum ada kontak</p>
-                    </div>
-                  ) : (
-                    contacts
-                      .filter(c => c.toLowerCase().includes(searchQuery.toLowerCase()))
-                      .map(c => (
-                        <motion.div 
-                          key={c}
-                          layout
-                          className="group flex items-center gap-4 p-4 bg-wa-surface/40 backdrop-blur-sm rounded-[2rem] border border-white/5 hover:border-wa-primary/20 hover:bg-wa-surface/60 transition-all cursor-pointer active:scale-[0.98]"
-                          onClick={() => openChat(c)}
-                        >
-                          <img src={`https://ui-avatars.com/api/?name=${c}&background=random`} className="w-12 h-12 rounded-2xl shadow-md" alt={c} />
-                          <div className="flex-grow min-w-0">
-                            <h4 className="font-bold text-base truncate text-white">{c.toUpperCase()}</h4>
-                            <p className="text-xs text-gray-500 font-medium">@{c}</p>
-                          </div>
-                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); removeContact(c); }}
-                              className="p-2 text-rose-500 hover:bg-rose-500/10 rounded-xl transition-all"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                            <ChevronRight className="w-5 h-5 text-gray-700 self-center" />
-                          </div>
-                        </motion.div>
-                      ))
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          )}
           {activePage === 'chats' && (
             <motion.div 
               key="chats"
@@ -1415,7 +1366,7 @@ export default function App() {
             className="fixed inset-0 bg-[#0b141a] z-[150] flex flex-col"
           >
             <header className="h-20 bg-wa-bg/90 backdrop-blur-2xl flex items-center px-4 gap-3 border-b border-white/5 shrink-0 z-[100] safe-top select-none touch-none">
-              <div className="p-2 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-90" onClick={closeChat}>
+              <div className="p-2 hover:bg-white/5 rounded-2xl transition-all cursor-pointer active:scale-90" onClick={() => closeChat()}>
                 <ArrowLeft className="w-5 h-5 text-gray-400 hover:text-white" />
               </div>
               {!isSearchingChat ? (
