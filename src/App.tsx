@@ -870,7 +870,7 @@ export default function App() {
       </header>
 
       {/* Content Area */}
-      <main className="flex-grow overflow-y-auto pb-24 relative overscroll-contain touch-pan-y scroll-smooth">
+      <main className="flex-grow overflow-y-auto pb-32 relative overscroll-contain touch-pan-y scroll-smooth">
         <AnimatePresence mode="wait">
           {activePage === 'contacts' && (
             <motion.div 
@@ -1217,65 +1217,6 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-
-          {activePage === 'contacts' && (
-            <motion.div 
-              key="contacts"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="p-4 flex flex-col gap-6"
-            >
-              <div className="flex flex-col gap-4">
-                <h3 className="text-xl font-bold">Kontak</h3>
-                <div className="flex gap-2">
-                  <div className="flex-grow bg-wa-surface rounded-2xl flex items-center px-4 py-3 gap-3 border border-white/5 focus-within:border-wa-primary/30 transition-colors">
-                    <UserPlus className="w-5 h-5 text-gray-500" />
-                    <input 
-                      type="text" 
-                      placeholder="Masukkan ID Teman..." 
-                      className="bg-transparent flex-grow outline-none text-base text-white placeholder:text-gray-600"
-                      value={friendIdInput}
-                      onChange={(e) => setFriendIdInput(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && openChat(friendIdInput)}
-                    />
-                  </div>
-                  <button 
-                    onClick={() => {
-                      if (friendIdInput.trim()) {
-                        openChat(friendIdInput.trim().toLowerCase());
-                        setFriendIdInput("");
-                      }
-                    }} 
-                    className="bg-wa-primary p-4 rounded-2xl font-bold text-white shadow-lg active:scale-95 transition-all"
-                  >
-                    <Plus className="w-6 h-6" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-[10px] font-black text-gray-600 uppercase tracking-widest mb-4 px-2">Kontak Terakhir</p>
-                <div className="flex flex-col gap-2">
-                  {Object.keys(chatHistory).map(pid => (
-                    <motion.div 
-                      key={pid}
-                      layout
-                      onClick={() => openChat(pid)}
-                      className="flex items-center gap-4 p-4 bg-wa-surface rounded-2xl cursor-pointer hover:bg-white/5 transition-all active:scale-[0.98] border border-white/5"
-                    >
-                      <img src={`https://ui-avatars.com/api/?name=${pid}&background=random`} className="w-12 h-12 rounded-xl shadow-sm" alt={pid} />
-                      <div className="flex-grow">
-                        <span className="font-bold text-base">{pid.toUpperCase()}</span>
-                        <p className="text-xs text-gray-500 font-medium">Ketuk untuk mulai chat</p>
-                      </div>
-                      <ChevronRight className="w-5 h-5 text-gray-700" />
-                    </motion.div>
-                  ))}
                 </div>
               </div>
             </motion.div>
@@ -1736,14 +1677,14 @@ export default function App() {
               <div ref={chatEndRef} />
             </div>
             
-            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom select-none bg-wa-bg/90 backdrop-blur-2xl">
-              <div className="flex items-end gap-2 max-w-4xl mx-auto">
+            <footer className="p-2 pb-8 md:pb-4 bg-wa-bg/95 backdrop-blur-3xl border-t border-white/5 shrink-0 z-[100] select-none">
+              <div className="flex items-end gap-1.5 max-w-4xl mx-auto">
                 <div className="flex gap-1 mb-0.5">
                   <div className="relative">
                     <button 
                       onClick={() => setShowAttachMenu(!showAttachMenu)}
                       className={cn(
-                        "p-2.5 rounded-full transition-all active:scale-90 shadow-lg",
+                        "p-2.5 rounded-2xl transition-all active:scale-90 shadow-lg",
                         showAttachMenu ? "bg-wa-primary text-white" : "bg-wa-surface text-gray-400"
                       )}
                     >
@@ -1786,13 +1727,13 @@ export default function App() {
                   </div>
                   <button 
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="p-3 bg-wa-surface rounded-2xl text-gray-400 hover:text-yellow-500 hover:bg-yellow-500/10 transition-all active:scale-90 shadow-lg"
+                    className="p-2.5 bg-wa-surface rounded-2xl text-gray-400 hover:text-yellow-500 transition-all active:scale-90 shadow-lg"
                   >
                     <Smile className="w-5 h-5" />
                   </button>
                 </div>
 
-                <div className="flex-grow bg-wa-surface/50 backdrop-blur-xl rounded-[1.8rem] border border-white/5 flex items-end px-5 py-3 focus-within:border-wa-primary/30 transition-all shadow-inner">
+                <div className="flex-grow min-w-0 bg-wa-surface/50 backdrop-blur-xl rounded-[1.8rem] border border-white/5 flex items-end px-3 py-2.5 focus-within:border-wa-primary/30 transition-all shadow-inner">
                   <textarea 
                     rows={1}
                     placeholder="Ketik pesan..." 
@@ -1824,11 +1765,11 @@ export default function App() {
                     onTouchStart={startRecording}
                     onTouchEnd={stopRecording}
                     className={cn(
-                      "p-4 rounded-[1.2rem] transition-all shadow-xl active:scale-90",
+                      "p-3.5 rounded-[1.2rem] transition-all shadow-xl active:scale-90",
                       isRecording ? "bg-rose-500 shadow-rose-500/30" : "bg-wa-surface/50 text-gray-400 hover:text-wa-primary"
                     )}
                   >
-                    <Mic className={cn("w-6 h-6", isRecording ? "text-white animate-pulse" : "")} />
+                    <Mic className={cn("w-5 h-5", isRecording ? "text-white animate-pulse" : "")} />
                   </button>
 
                   <button 
@@ -1840,11 +1781,11 @@ export default function App() {
                       }
                     }}
                     className={cn(
-                      "p-4 rounded-[1.2rem] transition-all shadow-xl active:scale-90",
+                      "p-3.5 rounded-[1.2rem] transition-all shadow-xl active:scale-90",
                       messageInput.trim() ? "bg-wa-primary text-white shadow-wa-primary/40" : "bg-wa-surface/50 text-gray-600 opacity-50"
                     )}
                   >
-                    <Send className="w-6 h-6" />
+                    <Send className="w-5 h-5" />
                   </button>
                 </div>
               </div>
