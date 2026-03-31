@@ -1,0 +1,8 @@
+{
+  "name": "StoryBali Cht",
+  "description": "A secure P2P chat application with voice and video calls, powered by PeerJS.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
