@@ -108,6 +108,7 @@ export default function App() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupMembers, setNewGroupMembers] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   const handleCreateGroup = () => {
     if (!newGroupName) return;
@@ -275,7 +276,19 @@ export default function App() {
       // Wait for SW to be ready
       await navigator.serviceWorker.ready;
 
-      const response = await fetch('/api/push/vapid-public-key');
+      const response = await fetch('/api/push/vapid-public-key').catch(() => null);
+      
+      if (!response || !response.ok) {
+        throw new Error(`Server API tidak merespons (Status: ${response?.status || 'Offline'}). Pastikan server.ts berjalan.`);
+      }
+
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await response.text();
+        console.error("Respon bukan JSON:", text);
+        throw new Error("Server mengembalikan format non-JSON. Periksa rute API.");
+      }
+
       const { publicKey } = await response.json();
 
       const subscription = await registration.pushManager.subscribe({
@@ -733,9 +746,29 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, currentChatPeer]);
 
+  // Lock overscroll behavior for PWA feel
+  useEffect(() => {
+    // Mencegah scroll pada body untuk menghindari efek bouncing di iOS
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+    document.body.style.overscrollBehavior = 'none';
+
+    return () => {
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.overflow = '';
+      document.documentElement.style.overscrollBehavior = 'auto';
+      document.body.style.overscrollBehavior = 'auto';
+    };
+  }, []);
+
   if (!isLoggedIn) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-8 z-[300] bg-wa-bg text-wa-text font-sans overflow-hidden">
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-8 z-[300] bg-wa-bg text-wa-text font-sans overflow-hidden select-none touch-none">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,#00a88433,transparent_70%)] pointer-events-none" />
         
         <motion.div 
@@ -814,12 +847,12 @@ export default function App() {
   };
 
   return (
-    <div className={cn("h-screen flex flex-col bg-wa-bg text-wa-text font-sans overflow-hidden", theme)}>
+    <div className={cn("fixed inset-0 h-[100dvh] w-screen flex flex-col bg-wa-bg text-wa-text font-sans overflow-hidden select-none touch-none", theme)}>
       <audio id="ringtone" ref={ringtoneRef} loop src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" />
       <audio id="notif-chat" ref={notifRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" />
 
       {/* Header */}
-      <header className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 shrink-0 z-[100] safe-top">
+      <header className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 shrink-0 z-[100] safe-top touch-none">
         <h2 className="text-2xl font-black text-wa-primary tracking-tight">StoryBali</h2>
         <div className="flex gap-5 text-gray-400">
           <Camera className="cursor-pointer hover:text-white w-5 h-5 transition-colors" />
@@ -829,7 +862,7 @@ export default function App() {
       </header>
 
       {/* Content Area */}
-      <main className="flex-grow overflow-y-auto pb-24 relative">
+      <main className="flex-grow overflow-y-auto pb-24 relative overscroll-contain touch-pan-y scroll-smooth">
         <AnimatePresence mode="wait">
           {activePage === 'contacts' && (
             <motion.div 
@@ -1492,7 +1525,7 @@ export default function App() {
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed inset-0 bg-[#0b141a] z-[150] flex flex-col"
           >
-            <header className="h-16 glass flex items-center px-2 gap-2 border-b border-white/5 shrink-0 z-[100] safe-top">
+            <header className="h-16 glass flex items-center px-2 gap-2 border-b border-white/5 shrink-0 z-[100] safe-top select-none touch-none">
               <div className="p-1.5 hover:bg-white/5 rounded-full transition-colors cursor-pointer" onClick={closeChat}>
                 <ArrowLeft className="w-5 h-5 text-gray-400 hover:text-white" />
               </div>
@@ -1576,11 +1609,12 @@ export default function App() {
             </header>
             
             <div 
-              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed"
+              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed overscroll-contain touch-pan-y scroll-smooth"
               style={{ 
                 backgroundImage: wallpaper ? `url(${wallpaper})` : "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded51.png')",
                 backgroundSize: 'cover'
               }}
+              onClick={() => { setShowAttachMenu(false); setShowEmojiPicker(false); }}
             >
               {chatHistory[currentChatPeer]?.filter(m => 
                 m.type === 'text' ? m.msg.toLowerCase().includes(searchChatQuery.toLowerCase()) : true
@@ -1591,15 +1625,18 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   className={cn(
                     "p-3.5 max-w-[80%] shadow-sm relative group/msg",
-                    m.side === 'in' ? "bg-wa-surface rounded-2xl rounded-tl-none self-start" : "bg-wa-accent rounded-2xl rounded-tr-none self-end"
+                    m.side === 'in' ? "bg-wa-surface rounded-2xl rounded-tl-none self-start" : "bg-wa-accent rounded-2xl rounded-tr-none self-end text-white"
                   )}
                 >
-                  <div className="absolute -top-8 left-0 right-0 hidden group-hover/msg:flex justify-center gap-2 z-10">
+                  <div className="absolute -top-8 left-0 right-0 hidden group-hover/msg:flex justify-center gap-2 z-10 select-none">
                     <div className="bg-wa-surface border border-white/10 rounded-full px-3 py-1.5 flex gap-3 shadow-2xl backdrop-blur-xl">
                       <ThumbsUp className="w-4 h-4 text-yellow-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '👍')} />
                       <Heart className="w-4 h-4 text-rose-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '❤️')} />
                       <Laugh className="w-4 h-4 text-orange-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '😂')} />
-                      <Star className={cn("w-4 h-4 cursor-pointer hover:scale-125 transition", m.starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} onClick={() => toggleStar(currentChatPeer, m.id)} />
+                      <Star 
+                        className={cn("w-4 h-4 cursor-pointer hover:scale-125 transition", m.starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} 
+                        onClick={() => toggleStar(currentChatPeer, m.id)} 
+                      />
                     </div>
                   </div>
 
@@ -1688,37 +1725,53 @@ export default function App() {
               <div ref={chatEndRef} />
             </div>
             
-            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom">
+            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom select-none bg-wa-bg/80 backdrop-blur-xl">
               <div className="flex items-end gap-2 max-w-4xl mx-auto">
                 <div className="flex gap-1 mb-0.5">
-                  <div className="relative group/attach">
-                    <button className="p-2.5 bg-wa-surface rounded-full text-gray-400 hover:text-wa-primary hover:bg-wa-primary/10 transition-all active:scale-90 shadow-lg">
+                  <div className="relative">
+                    <button 
+                      onClick={() => setShowAttachMenu(!showAttachMenu)}
+                      className={cn(
+                        "p-2.5 rounded-full transition-all active:scale-90 shadow-lg",
+                        showAttachMenu ? "bg-wa-primary text-white" : "bg-wa-surface text-gray-400"
+                      )}
+                    >
                       <Paperclip className="w-4.5 h-4.5" />
                     </button>
-                    <div className="absolute bottom-full left-0 mb-4 flex flex-col gap-3 hidden group-hover/attach:flex animate-in fade-in slide-in-from-bottom-4 duration-200">
-                      <label className="p-3 bg-emerald-500 text-white rounded-full cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
-                        <ImageIcon className="w-5 h-5" />
-                        <input type="file" className="hidden" accept="image/*" onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => sendMsg(ev.target?.result as string, 'img');
-                            reader.readAsDataURL(file);
-                          }
-                        }} />
-                      </label>
-                      <label className="p-3 bg-blue-500 text-white rounded-full cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
-                        <FileText className="w-5 h-5" />
-                        <input type="file" className="hidden" onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onload = (ev) => sendMsg(JSON.stringify({ name: file.name, data: ev.target?.result }), 'file');
-                            reader.readAsDataURL(file);
-                          }
-                        }} />
-                      </label>
-                    </div>
+                    
+                    <AnimatePresence>
+                      {showAttachMenu && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className="absolute bottom-full left-0 mb-4 flex flex-col gap-3 z-[200]"
+                        >
+                          <label className="p-3 bg-emerald-500 text-white rounded-full cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
+                            <ImageIcon className="w-5 h-5" />
+                            <input type="file" className="hidden" accept="image/*" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => { sendMsg(ev.target?.result as string, 'img'); setShowAttachMenu(false); };
+                                reader.readAsDataURL(file);
+                              }
+                            }} />
+                          </label>
+                          <label className="p-3 bg-blue-500 text-white rounded-full cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
+                            <FileText className="w-5 h-5" />
+                            <input type="file" className="hidden" onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (ev) => { sendMsg(JSON.stringify({ name: file.name, data: ev.target?.result }), 'file'); setShowAttachMenu(false); };
+                                reader.readAsDataURL(file);
+                              }
+                            }} />
+                          </label>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   <button 
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
