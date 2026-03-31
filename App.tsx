@@ -733,10 +733,23 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory, currentChatPeer]);
 
+  // Lock overscroll behavior for PWA feel
+  useEffect(() => {
+    const originalStyle = window.getComputedStyle(document.body).overflow;
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+    document.documentElement.style.overscrollBehavior = 'none';
+    
+    return () => {
+      document.body.style.overflow = originalStyle;
+      document.body.style.overscrollBehavior = 'auto';
+      document.documentElement.style.overscrollBehavior = 'auto';
+    };
+  }, []);
+
   if (!isLoggedIn) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-8 z-[300] bg-wa-bg text-wa-text font-sans overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,#00a88433,transparent_70%)] pointer-events-none" />
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-8 z-[300] bg-wa-bg text-wa-text font-sans overflow-hiddenilag-a-dn
         
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -814,9 +827,8 @@ export default function App() {
   };
 
   return (
-    <div className={cn("h-screen flex flex-col bg-wa-bg text-wa-text font-sans overflow-hidden", theme)}>
-      <audio id="ringtone" ref={ringtoneRef} loop src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" />
-      <audio id="notif-chat" ref={notifRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" />
+    <div className={cn("fixed inset-0 h-[100dvh] w-screen flex flex-col bg-wa-bg text-wa-text font-sans overflow-hidden select-none", theme)}>
+      <audio id="rington.at" ref={notifRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" />
 
       {/* Header */}
       <header className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 shrink-0 z-[100] safe-top">
@@ -829,9 +841,8 @@ export default function App() {
       </header>
 
       {/* Content Area */}
-      <main className="flex-grow overflow-y-auto pb-24 relative">
-        <AnimatePresence mode="wait">
-          {activePage === 'contacts' && (
+      <main className="flex-grow overflow-y-auto pb-24 relative overscroll-none touch-pan-y">
+        <AnimatePresence m
             <motion.div 
               key="contacts"
               initial={{ opacity: 0, x: -20 }}
@@ -1492,11 +1503,10 @@ export default function App() {
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed inset-0 bg-[#0b141a] z-[150] flex flex-col"
           >
-            <header className="h-16 glass flex items-center px-2 gap-2 border-b border-white/5 shrink-0 z-[100] safe-top">
+            <header className="h-16 glass flex items-center px-2 gap-2 border-b border-white/5 shrink-0 z-[100] safe-top select-none">
               <div className="p-1.5 hover:bg-white/5 rounded-full transition-colors cursor-pointer" onClick={closeChat}>
                 <ArrowLeft className="w-5 h-5 text-gray-400 hover:text-white" />
-              </div>
-              {!isSearchingChat ? (
+              </div> hh
                 <>
                   <div className="relative shrink-0">
                     <img 
@@ -1576,11 +1586,10 @@ export default function App() {
             </header>
             
             <div 
-              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed"
+              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed overscroll-none touch-pan-y"
               style={{ 
                 backgroundImage: wallpaper ? `url(${wallpaper})` : "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded51.png')",
-                backgroundSize: 'cover'
-              }}
+               
             >
               {chatHistory[currentChatPeer]?.filter(m => 
                 m.type === 'text' ? m.msg.toLowerCase().includes(searchChatQuery.toLowerCase()) : true
@@ -1594,12 +1603,11 @@ export default function App() {
                     m.side === 'in' ? "bg-wa-surface rounded-2xl rounded-tl-none self-start" : "bg-wa-accent rounded-2xl rounded-tr-none self-end"
                   )}
                 >
-                  <div className="absolute -top-8 left-0 right-0 hidden group-hover/msg:flex justify-center gap-2 z-10">
+                  <div className="absolute -top-8 left-0 right-0 hidden group-hover/msg:flex justify-center gap-2 z-10 select-none">
                     <div className="bg-wa-surface border border-white/10 rounded-full px-3 py-1.5 flex gap-3 shadow-2xl backdrop-blur-xl">
                       <ThumbsUp className="w-4 h-4 text-yellow-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '👍')} />
-                      <Heart className="w-4 h-4 text-rose-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '❤️')} />
-                      <Laugh className="w-4 h-4 text-orange-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '😂')} />
-                      <Star className={cn("w-4 h-4 cursor-pointer hover:scale-125 transition", m.starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} onClick={() => toggleStar(currentChatPeer, m.id)} />
+                         <Laugh className="w-4 h-4 text-orange-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '😂')} />
+       <"4rr:""y-400 fill-yellow-400" : "text-gray-400")} onClick={() => toggleStar(currentChatPeer, m.id)} />
                     </div>
                   </div>
 
@@ -1688,13 +1696,12 @@ export default function App() {
               <div ref={chatEndRef} />
             </div>
             
-            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom">
+            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom select-none">
               <div className="flex items-end gap-2 max-w-4xl mx-auto">
                 <div className="flex gap-1 mb-0.5">
                   <div className="relative group/attach">
-                    <button className="p-2.5 bg-wa-surface rounded-full text-gray-400 hover:text-wa-primary hover:bg-wa-primary/10 transition-all active:scale-90 shadow-lg">
-                      <Paperclip className="w-4.5 h-4.5" />
-                    </button>
+                            <Paperclip className="w-4.5 h-4.5" />
+      
                     <div className="absolute bottom-full left-0 mb-4 flex flex-col gap-3 hidden group-hover/attach:flex animate-in fade-in slide-in-from-bottom-4 duration-200">
                       <label className="p-3 bg-emerald-500 text-white rounded-full cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
                         <ImageIcon className="w-5 h-5" />
