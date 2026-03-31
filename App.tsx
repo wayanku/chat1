@@ -108,6 +108,7 @@ export default function App() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupMembers, setNewGroupMembers] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   const handleCreateGroup = () => {
     if (!newGroupName) return;
@@ -749,7 +750,8 @@ export default function App() {
 
   if (!isLoggedIn) {
     return (
-      <div className="fixed inset-0 flex flex-col items-center justify-center p-8 z-[300] bg-wa-bg text-wa-text font-sans overflow-hiddenilag-a-dn
+      <div className="fixed inset-0 flex flex-col items-center justify-center p-8 z-[300] bg-wa-bg text-wa-text font-sans overflow-hidden select-none touch-none">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,#00a88433,transparent_70%)] pointer-events-none" />
         
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
@@ -827,11 +829,12 @@ export default function App() {
   };
 
   return (
-    <div className={cn("fixed inset-0 h-[100dvh] w-screen flex flex-col bg-wa-bg text-wa-text font-sans overflow-hidden select-none", theme)}>
-      <audio id="rington.at" ref={notifRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" />
+    <div className={cn("fixed inset-0 h-[100dvh] w-screen flex flex-col bg-wa-bg text-wa-text font-sans overflow-hidden select-none touch-none", theme)}>
+      <audio id="ringtone" ref={ringtoneRef} loop src="https://assets.mixkit.co/active_storage/sfx/1359/1359-preview.mp3" />
+      <audio id="notif-chat" ref={notifRef} src="https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3" />
 
       {/* Header */}
-      <header className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 shrink-0 z-[100] safe-top">
+      <header className="h-16 flex items-center justify-between px-6 glass border-b border-white/5 shrink-0 z-[100] safe-top touch-none">
         <h2 className="text-2xl font-black text-wa-primary tracking-tight">StoryBali</h2>
         <div className="flex gap-5 text-gray-400">
           <Camera className="cursor-pointer hover:text-white w-5 h-5 transition-colors" />
@@ -1586,10 +1589,12 @@ export default function App() {
             </header>
             
             <div 
-              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed overscroll-none touch-pan-y"
+              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed overscroll-contain touch-pan-y"
               style={{ 
                 backgroundImage: wallpaper ? `url(${wallpaper})` : "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded51.png')",
-               
+                backgroundSize: 'cover'
+              }}
+              onClick={() => { setShowAttachMenu(false); setShowEmojiPicker(false); }}
             >
               {chatHistory[currentChatPeer]?.filter(m => 
                 m.type === 'text' ? m.msg.toLowerCase().includes(searchChatQuery.toLowerCase()) : true
@@ -1600,14 +1605,15 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   className={cn(
                     "p-3.5 max-w-[80%] shadow-sm relative group/msg",
-                    m.side === 'in' ? "bg-wa-surface rounded-2xl rounded-tl-none self-start" : "bg-wa-accent rounded-2xl rounded-tr-none self-end"
+                    m.side === 'in' ? "bg-wa-surface rounded-2xl rounded-tl-none self-start" : "bg-wa-accent rounded-2xl rounded-tr-none self-end text-white"
                   )}
                 >
                   <div className="absolute -top-8 left-0 right-0 hidden group-hover/msg:flex justify-center gap-2 z-10 select-none">
                     <div className="bg-wa-surface border border-white/10 rounded-full px-3 py-1.5 flex gap-3 shadow-2xl backdrop-blur-xl">
                       <ThumbsUp className="w-4 h-4 text-yellow-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '👍')} />
-                         <Laugh className="w-4 h-4 text-orange-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '😂')} />
-       <"4rr:""y-400 fill-yellow-400" : "text-gray-400")} onClick={() => toggleStar(currentChatPeer, m.id)} />
+                      <Heart className="w-4 h-4 text-rose-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '❤️')} />
+                      <Laugh className="w-4 h-4 text-orange-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '😂')} />
+                      <Star className={cn("w-4 h-4 cursor-pointer hover:scale-125 transition", m.starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} onClick={() => toggleStar(currentChatPeer, m.id)} />
                     </div>
                   </div>
 
