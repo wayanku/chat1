@@ -108,7 +108,6 @@ export default function App() {
   const [newGroupName, setNewGroupName] = useState("");
   const [newGroupMembers, setNewGroupMembers] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [showAttachMenu, setShowAttachMenu] = useState(false);
 
   const handleCreateGroup = () => {
     if (!newGroupName) return;
@@ -736,15 +735,21 @@ export default function App() {
 
   // Lock overscroll behavior for PWA feel
   useEffect(() => {
-    const originalStyle = window.getComputedStyle(document.body).overflow;
+    // Mencegah scroll pada body untuk menghindari efek bouncing di iOS
+    document.body.style.position = 'fixed';
+    document.body.style.width = '100%';
+    document.body.style.height = '100%';
     document.body.style.overflow = 'hidden';
-    document.body.style.overscrollBehavior = 'none';
     document.documentElement.style.overscrollBehavior = 'none';
-    
+    document.body.style.overscrollBehavior = 'none';
+
     return () => {
-      document.body.style.overflow = originalStyle;
-      document.body.style.overscrollBehavior = 'auto';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+      document.body.style.overflow = '';
       document.documentElement.style.overscrollBehavior = 'auto';
+      document.body.style.overscrollBehavior = 'auto';
     };
   }, []);
 
@@ -844,8 +849,9 @@ export default function App() {
       </header>
 
       {/* Content Area */}
-      <main className="flex-grow overflow-y-auto pb-24 relative overscroll-none touch-pan-y">
-        <AnimatePresence m
+      <main className="flex-grow overflow-y-auto pb-24 relative overscroll-contain touch-pan-y">
+        <AnimatePresence mode="wait">
+          {activePage === 'contacts' && (
             <motion.div 
               key="contacts"
               initial={{ opacity: 0, x: -20 }}
@@ -1506,10 +1512,11 @@ export default function App() {
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="fixed inset-0 bg-[#0b141a] z-[150] flex flex-col"
           >
-            <header className="h-16 glass flex items-center px-2 gap-2 border-b border-white/5 shrink-0 z-[100] safe-top select-none">
+            <header className="h-16 glass flex items-center px-2 gap-2 border-b border-white/5 shrink-0 z-[100] safe-top select-none touch-none">
               <div className="p-1.5 hover:bg-white/5 rounded-full transition-colors cursor-pointer" onClick={closeChat}>
                 <ArrowLeft className="w-5 h-5 text-gray-400 hover:text-white" />
-              </div> hh
+              </div>
+              {!isSearchingChat ? (
                 <>
                   <div className="relative shrink-0">
                     <img 
@@ -1589,12 +1596,11 @@ export default function App() {
             </header>
             
             <div 
-              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed overscroll-contain touch-pan-y"
+              className="flex-grow overflow-y-auto p-4 flex flex-col gap-3 bg-fixed overscroll-contain touch-pan-y scroll-smooth"
               style={{ 
                 backgroundImage: wallpaper ? `url(${wallpaper})` : "url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded51.png')",
                 backgroundSize: 'cover'
               }}
-              onClick={() => { setShowAttachMenu(false); setShowEmojiPicker(false); }}
             >
               {chatHistory[currentChatPeer]?.filter(m => 
                 m.type === 'text' ? m.msg.toLowerCase().includes(searchChatQuery.toLowerCase()) : true
@@ -1613,7 +1619,10 @@ export default function App() {
                       <ThumbsUp className="w-4 h-4 text-yellow-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '👍')} />
                       <Heart className="w-4 h-4 text-rose-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '❤️')} />
                       <Laugh className="w-4 h-4 text-orange-500 cursor-pointer hover:scale-125 transition" onClick={() => addReaction(currentChatPeer, m.id, '😂')} />
-                      <Star className={cn("w-4 h-4 cursor-pointer hover:scale-125 transition", m.starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} onClick={() => toggleStar(currentChatPeer, m.id)} />
+                      <Star 
+                        className={cn("w-4 h-4 cursor-pointer hover:scale-125 transition", m.starred ? "text-yellow-400 fill-yellow-400" : "text-gray-400")} 
+                        onClick={() => toggleStar(currentChatPeer, m.id)} 
+                      />
                     </div>
                   </div>
 
@@ -1702,12 +1711,13 @@ export default function App() {
               <div ref={chatEndRef} />
             </div>
             
-            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom select-none">
+            <footer className="p-2 glass border-t border-white/5 shrink-0 z-[100] safe-bottom select-none bg-wa-bg/80 backdrop-blur-xl">
               <div className="flex items-end gap-2 max-w-4xl mx-auto">
                 <div className="flex gap-1 mb-0.5">
                   <div className="relative group/attach">
-                            <Paperclip className="w-4.5 h-4.5" />
-      
+                    <button className="p-2.5 bg-wa-surface rounded-full text-gray-400 hover:text-wa-primary hover:bg-wa-primary/10 transition-all active:scale-90 shadow-lg">
+                      <Paperclip className="w-4.5 h-4.5" />
+                    </button>
                     <div className="absolute bottom-full left-0 mb-4 flex flex-col gap-3 hidden group-hover/attach:flex animate-in fade-in slide-in-from-bottom-4 duration-200">
                       <label className="p-3 bg-emerald-500 text-white rounded-full cursor-pointer shadow-xl hover:scale-110 active:scale-95 transition-all">
                         <ImageIcon className="w-5 h-5" />
